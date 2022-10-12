@@ -9,6 +9,9 @@ Semester: Fall 2022
 from PIL import Image
 import numpy as np
 import math
+import sys
+
+
 
 def scale32(imagearray, width, heigth):
     '''
@@ -33,10 +36,14 @@ def scale32(imagearray, width, heigth):
                 break
     newimg = np.array(newimg)
     newimg = np.array_split(newimg, 32) #Reshape the array to be the target final dimension
+    f = open("result.txt", "w")
+    print(newimg, file = f)
+    f.close()
     newimg = np.array(newimg)
     im = Image.fromarray(newimg) #Save array into a new image file
     im.save("result.bmp")
     print('Success')
+    
     return()
 
 #Code from: https://www.daniweb.com/programming/software-development/threads/253957/converting-an-image-file-png-to-a-bitmap-file
@@ -84,13 +91,15 @@ def cropimg(imagearray, width, height):
     cropimage = np.array(cropimage)
     cropimage = np.array_split(cropimage, targetdimension) #Reshape the array to be the target final dimension
     cropimage = np.array(cropimage)
-    #x = Image.fromarray(cropimage)
-    #x.save("cropresult.bmp")
+    x = Image.fromarray(cropimage)
+    x.save("cropresult.bmp")
     print('Crop Success')
     return(cropimage) #Return the cropped image to main
         
 
+np.set_printoptions(threshold=sys.maxsize)
 n = 0
+crop = 0
 while n == 0:
     filename = input('Enter filename: ') #Ask user for the name of the image file
     if (filename[-4:] == '.png') or (filename[-4:] == '.ico') or (filename[-4:] == '.jpg') or (filename[-4:] == '.bmp'):
@@ -102,6 +111,7 @@ if (filename[-4:] == '.png') or (filename[-4:] == '.ico'):
     inputfile = pngtobmp(inputfile) #Convert .png and .ico to .bmp file
 img = np.array(inputfile)
 [height,width,d] = img.shape
+#print(img.shape)
 if width != height:
     print("Image doesn't have the same width and height, would you like to crop the image to prevent image stretching")
     crop = input('1 for Yes, 0 for No: ') #Ask user if they want to crop the image
