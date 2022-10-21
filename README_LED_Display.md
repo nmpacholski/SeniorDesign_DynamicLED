@@ -32,6 +32,7 @@ Input: Array with shape (x, y, 3), width of the array, height of the array
 Output: N/A
 
 
+
 display.py
 **This program will not be in the final product**
 
@@ -39,4 +40,25 @@ Description: This program will simulate how the 32x32 bmp will look on LED scree
 the pixel in the original image.
 
 Input: 32x32 bmp image file
+Output: N/A
+
+
+
+display.ino
+Description: This program will act as a driver that will takes the input data from the microcontroller and display it on the LED matrix screen.
+
+Function
+displayimage
+Description: This function will takes either an animation file which is a series of bmp image stack on top of each other or a single bmp image, and display the input data on the screen
+Input: Data array pointer, width of the array, height of the array
+Output: N/A
+
+displaydimimage
+Description: This function is similar to displayimage but it reduce the brightness of the screen
+Input: Data array pointer, width of the array, height of the array, lambda
+Output: N/A
+
+displaytime
+Description: This function will display the current time in the military time format. It will shows hour and minute and the number is 7 segment format
+Input: Array with shape of (2)
 Output: N/A
