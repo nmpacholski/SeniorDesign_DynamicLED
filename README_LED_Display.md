@@ -27,38 +27,30 @@ Output: Array with shape (x, x, 3) or Array with shape (y, y, 3)
 
 scale32
 Description: This function will scale down the image to 32x32 resolution. It will divide the input image into 32x32 grid and will takes the RGB values of the first pixel in each grid
-and append those values into a new array. The array is converted into a bmp image format and is compile into a new image file.
+and append those values into a new array.
 Input: Array with shape (x, y, 3), width of the array, height of the array
-Output: N/A
+Output: Array with shape (32, 32, 3)
 
 
 
-display.py
-**This program will not be in the final product**
-
-Description: This program will simulate how the 32x32 bmp will look on LED screen. It takes the bmp image file and plot each point on the graph with each point having the same color as 
-the pixel in the original image.
-
-Input: 32x32 bmp image file
-Output: N/A
-
-
-
-display.ino
-Description: This program will act as a driver that will takes the input data from the microcontroller and display it on the LED matrix screen.
-
+display.h
 Function
 displayimage
-Description: This function will takes either an animation file which is a series of bmp image stack on top of each other or a single bmp image, and display the input data on the screen
-Input: Data array pointer, width of the array, height of the array
+Description: This function will convert the data from the memory pointer into an integer array of 32x32x3 and map each pixel of the data to the LED matrix
+Input: memory pointer(point to array with shape of 32,32,3), height of image, width of image
 Output: N/A
 
 displaydimimage
-Description: This function is similar to displayimage but it reduce the brightness of the screen
-Input: Data array pointer, width of the array, height of the array, lambda
+Description: This function is similar to the displayimage but the brightness level is turned down base on the lambda value
+Input: memory pointer(point to array with shape of 32,32,3), height of image, width of image, lambda
 Output: N/A
 
 displaytime
-Description: This function will display the current time in the military time format. It will shows hour and minute and the number is 7 segment format
-Input: Array with shape of (2)
+Description: This function will read the time data input in the format of [hh:mm] and display the number according to the time data input
+Input: Array with shape of 2
 Output: N/A
+
+displayequalizer
+Description: This function will take the FFT array and display audio spectrum visualizer (similar to figure 1.1)
+Input: Array with shape of 16 (This array is the new FFT), memory pointer (point to the current FFT [array with shape of 16])
+output: Array with shape of 16
