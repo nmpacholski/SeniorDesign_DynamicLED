@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <stdio.h>
+#include <LinkedList.h>
 using namespace std;
 
 #include <fstream>
@@ -84,6 +85,47 @@ volatile int disp_new_image = 1;
 void ARDUINO_ISR_ATTR change_image() {
   disp_new_image = 1;
 }
+
+//Link list
+class Pun {
+  public:
+    char *name;
+};
+
+/*struct node {
+  char *filename;
+  struct node *next;
+};
+
+struct pun {
+  struct node *head;
+  struct node *tail;
+};
+
+struct pun *create_list(void) {
+  struct pun *new_list = (struct pun *) malloc(sizeof(struct pun));
+  new_list->head = NULL;
+  new_list->tail = NULL;
+  return new_list;
+}
+
+struct node *create_node(char *name) {
+  struct node *new_node = (struct node *) malloc(sizeof(node));
+  new_node-> filename = name;
+  new_node->next = NULL;
+  return new_node;
+}
+
+void add_file(struct pun *l, char *name) {
+  struct node *new_node = create_node(name);
+  if (!l->head) {
+    l->head = new_node;
+    l->tail = new_node;
+  } else {
+    l->tail->next = new_node;
+    l->tail = new_node;
+  }
+}*/
 
 /*void power_button() {
   if (digitalRead(powr_but)) {
@@ -274,16 +316,25 @@ void setup_SD(){
 int  disp_arr[32][32][3];
 int temp[32][32][3];
 int timedata[2];
+char* test1;
+char test2[50];
+const char* temp3;
+//struct pun *filelist = create_list();
+File root;
+LinkedList<char*> myFileList = LinkedList<char*>();
 
 void setup()
 {
-  const char* filename;
+  int j = 0;
+  //Pun *holder;
+  //struct node *curr = filelist->head;
+  /*const char* filename;
   char format[] = "/";
   const char* temp;
   char* test1;
   char test2[50];
   int numfile = 0;
-  File root;
+  File root;*/
   // initialize LED digital pin as an output.
   //pinMode(led21, OUTPUT);
   //pinMode(led23, OUTPUT);
@@ -294,7 +345,7 @@ void setup()
   matrix.begin();
   image_timer = timerBegin(0, 80, true); // init timer
   timerAttachInterrupt(image_timer, &change_image, true); // init interrupt for timer
-  timerAlarmWrite(image_timer, 1000000, true); // create alarm to call interrupt
+  timerAlarmWrite(image_timer, 5000000, true); // create alarm to call interrupt
   timerAlarmEnable(image_timer); // enable alarm
   pinMode(mode_but.PIN, INPUT);
   pinMode(powr_but, INPUT);
@@ -305,19 +356,69 @@ void setup()
   timerStop(but_timer);
   timerWrite(but_timer, 0);
 
-  /*setup_SD();
+  setup_SD();
+  Serial.println("Setup success");
   root = SD.open("/");
+  Serial.println("Root created");
   while (true) {
     File entry =  root.openNextFile();
+    if (j == 0) {
+      entry =  root.openNextFile();
+      j++;
+    }
+    Serial.println("Entry created");
     if (! entry) {
       // no more files
+      Serial.println("Enter if condition");
+      Serial.println("end of the files");
       break;
     }
     else {
-      
+      Serial.println("Enter else condition");
+      char format[50] = "/";
+      char* holder;
+      char *finalname =(char *) malloc(100);
+      temp3 = entry.name();
+      //Serial.println(temp3);
+      test1 = (char*)temp3;
+      strcpy(test2, test1);
+      holder = strcat(format, test2);
+      Serial.print("holder = ");
+      //holder->name = format;
+      Serial.println(holder);
+      strcpy(finalname, holder);
+      myFileList.add(finalname);
+      //filelist[j - 1] = (const char*) format;
+      //add_file(filelist, format);
+      //Serial.println(curr->filename);
+      //filenum++;
+      /*for (int k = 0; k < myFileList.size(); k++){
+      //GetImgAndDisp(filelist[k]);
+      //delay(100);
+      char* n = myFileList.get(k);
+      Serial.println(n);*/
+      /*curr = curr->next;
+      if (!curr){
+        curr = filelist->head;
+      }*/
+      //delay(500);
+      }
+      //Serial.println("End of the loop");
+      entry.close();
     }
-  }*/
+    spi_SD.end();
 }
+  /*for (int k = 0; k < 10; k++){
+    //GetImgAndDisp(filelist[k]);
+    //delay(100);
+    Serial.println(curr->filename);
+    curr = curr->next;
+    if (!curr){
+      curr = filelist->head;
+    }
+    delay(500);
+  }*/
+
   //void *point = &disp_arr;
 // Main Code
 char temp1[] = "/g_rick";
@@ -327,47 +428,65 @@ int timetest[2];
 int set = 0;
 int i = 0;
 int re = 0;
-const char* filelist[2];
+//const char* filelist[2];
 const char* filename1 = "/test_bmp.bmp";
 const char* filename2 = "/i_result.bmp";
 int pointer = 1;
 int filenum = 0;
 
 const char* filename;
-char format[] = "/";
-const char* temp3;
-char* test1;
-char test2[50];
+//char format[] = "/";
+//const char* temp3;
+//char* test1;
+//char test2[50];
 int j = 0;
-File root;
+//File root;
+//struct pun *filelist = create_list();
 
   
 void loop() {
-  if (re == 0) {
+  //struct node *curr = filelist->head;
+  /*if (re == 0) {
     setup_SD();
+    Serial.print("Setup success");
     root = SD.open("/");
+    Serial.print("Root created");
     while (true) {
       File entry =  root.openNextFile();
+      Serial.print("Entry created");
       if (! entry) {
         // no more files
+        Serial.print("Enter if condition");
+        Serial.print("end of the files");
         break;
       }
       else {
-        filenum++;
+        Serial.print("Enter else condition");
+        char format[50] = "/";
+        temp3 = entry.name();
+        test1 = (char*)temp3;
+        strcpy(test2, test1);
+        strcat(format, test2);
+        Serial.print("format = ");
+        Serial.println(format);
+        //filelist[j - 1] = (const char*) format;
+        add_file(filelist, format);
+        //filenum++;
         entry.close();
       }
     }
-    spi_SD.end();
+    /*spi_SD.end();
     setup_SD();
     root = SD.open("/");
     filenum = filenum - 1;
     Serial.print("Filenum = ");
     Serial.println(filenum);
-    const char* filelist[filenum];
+    //const char* filelist[filenum];
     while (true) {
       File entry =  root.openNextFile();
       if (! entry) {
         // no more files
+        Serial.print("end of the files");
         break;
       }
       else if (j != 0) {
@@ -386,7 +505,8 @@ void loop() {
         Serial.println(test2);
         Serial.print("format = ");
         Serial.println(format);
-        filelist[j - 1] = (const char*) format;
+        //filelist[j - 1] = (const char*) format;
+        add_file(filelist, format);
         j++;
         entry.close();
       }
@@ -396,22 +516,42 @@ void loop() {
     }
     re++;
     spi_SD.end();
-  }
-  for (int k = 0; k < filenum; k++){
+  }*/
+  //Pun *n;
+  /*for (int k = 0; k < myFileList.size(); k++){
     //GetImgAndDisp(filelist[k]);
     //delay(100);
-    Serial.println(filelist[k]);
+    char*n = myFileList.get(k);
+    Serial.println(n);
+    curr = curr->next;
+    if (!curr){
+      curr = filelist->head;
+    }
     delay(500);
   }
-  /*set = checkbutton(set);
+  Serial.println("End of the loop");*/
+  set = checkbutton(set);
   timetest[0] = rtc.getHour(true);
   timetest[1] = rtc.getMinute();
   if (disp_new_image & (mode_but.numberKeyPresses == 0) & (mode_but.cur_mode == 0)) {
-    pointer = GetImgAndDisp(pointer);
-    i++;
-    i = i%2;
-    disp_new_image = 0;
-  }*/
+    char*n = myFileList.get(re);
+    //Serial.println(n);
+    GetImgAndDisp((const char *) n);
+    re++;
+    if (re >= myFileList.size()){
+      re = 0;
+    }
+    //i++;
+    //i = i%2;
+    if (n[1] == 'g'){
+      disp_new_image = 5000000 - 1000;
+    }
+    else if(n[1] == 'i'){
+      disp_new_image = 0;
+    }
+    Serial.print("disp_new_image = ");
+    Serial.print(disp_new_image);
+  }
 
   // Check power button
   //if (sleep_last) {
@@ -501,9 +641,11 @@ void GetImgAndDisp(const char* filename){
       i++;
     }
   }*/
+  setup_SD();
   bmpDraw(SD, filename, disp_arr);
   displayimage(disp_arr, 32, 32);
   spi_SD.end();
+  Serial.println("print successful");
   return;
 }
 
