@@ -4,7 +4,7 @@
 #include "FS.h"
 
 #define BUFFPIXEL 32
-void bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]);
+int bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]);
 
 void createDir(fs::FS &fs, const char * path);
 void removeDir(fs::FS &fs, const char * path);

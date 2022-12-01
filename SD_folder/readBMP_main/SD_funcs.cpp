@@ -17,7 +17,7 @@ uint32_t read32(File &f) {
   return result;
 }
 
-void bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]) {
+int bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]) {
 
   File     bmpFile;
   int      bmpWidth, bmpHeight;   // W+H in pixels
@@ -41,7 +41,7 @@ void bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]) {
   bmpFile = fs.open(filename);
   if (bmpFile == NULL) {
     Serial.print("File not found\n");
-    return;
+    return (1);
   }
 
 
@@ -114,4 +114,5 @@ void bmpDraw(fs::FS &fs, const char * filename, int disp_arr[32][32][3]) {
   }
   bmpFile.close();
   Serial.print("File is closed");
+  return (0);
 }

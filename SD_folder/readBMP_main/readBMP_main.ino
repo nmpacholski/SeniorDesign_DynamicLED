@@ -53,6 +53,8 @@ hw_timer_t * but_timer = NULL;
 
 
 SPIClass spi_SD = SPIClass(VSPI);
+void displaysetup(int error);
+void extractfilename();
 int checkbutton(int set);
 void GetImgAndDisp(const char* filename);
 int displayimage(int arr[32][32][3], int height, int width);
@@ -86,104 +88,6 @@ void ARDUINO_ISR_ATTR change_image() {
   disp_new_image = 1;
 }
 
-//Link list
-class Pun {
-  public:
-    char *name;
-};
-
-/*struct node {
-  char *filename;
-  struct node *next;
-};
-
-struct pun {
-  struct node *head;
-  struct node *tail;
-};
-
-struct pun *create_list(void) {
-  struct pun *new_list = (struct pun *) malloc(sizeof(struct pun));
-  new_list->head = NULL;
-  new_list->tail = NULL;
-  return new_list;
-}
-
-struct node *create_node(char *name) {
-  struct node *new_node = (struct node *) malloc(sizeof(node));
-  new_node-> filename = name;
-  new_node->next = NULL;
-  return new_node;
-}
-
-void add_file(struct pun *l, char *name) {
-  struct node *new_node = create_node(name);
-  if (!l->head) {
-    l->head = new_node;
-    l->tail = new_node;
-  } else {
-    l->tail->next = new_node;
-    l->tail = new_node;
-  }
-}*/
-
-/*void power_button() {
-  if (digitalRead(powr_but)) {
-    while (digitalRead(powr_but));
-    esp_deep_sleep_start();
-  }
-}*/
-
-/*char printDirectory(File dir, int numTabs) {
-  
-  int i = 0;
-  const char* filename;
-  while (true) {
-
-    File entry =  dir.openNextFile();
-
-    if (! entry) {
-
-      // no more files
-
-      break;
-
-    }
-
-    for (uint8_t i = 0; i < numTabs; i++) {
-
-      Serial.print('\t');
-
-    }
-    if (i != 0) {
-      Serial.print(entry.name());
-      Serial.print("\n");
-      filename = entry.name();
-      entry.close();
-      return (filename);
-    }
-    else {
-      i++;
-    }
-    if (entry.isDirectory()) {
-
-      Serial.println("/");
-
-      printDirectory(entry, numTabs + 1);
-
-    } else {
-
-      // files have sizes, directories do not
-
-      Serial.print("\t\t");
-
-      Serial.println(entry.size(), DEC);
-
-    }
-
-  }
-}*/
-
 void IRAM_ATTR mode_isr() {
   if (!mode_but.check) {
     mode_but.check = true;
@@ -210,6 +114,7 @@ void mode_pressed(int* set, int* hour, int* minute) {
 
   if (mode_but.pressed) {
     mode_but.pressed = false;
+    mode_but.hold = false;
     mode_state = mode_but.numberKeyPresses;
     Serial.print("\nPressed: ");
     if (mode_state == 0) {
@@ -260,6 +165,7 @@ void mode_pressed(int* set, int* hour, int* minute) {
   else if (mode_but.hold) {
     Serial.print("\nHeld: ");
     mode_but.hold = false;
+    mode_but.pressed = false;
     mode_but.numberKeyPresses = (mode_but.numberKeyPresses+1)%4;
     Serial.print(mode_but.numberKeyPresses);
     //displaytime(cur_time, 5 - mode_but.numberKeyPresses);
@@ -293,6 +199,7 @@ void setup_SD(){
   if(!SD.begin(CS_SD, spi_SD, 80000000)){
     // failed
     Serial.print("SD failed");
+    displaysetup(1);
     return;
   }
 
@@ -303,12 +210,6 @@ void setup_SD(){
     Serial.print("no card");
     return;
   }
-  //Serial.println("SD successful");
-  /*root = SD.open("/");
-
-  filename = printDirectory(root, 0);
-  Serial.println(filename);*/
-  
 }
 
 // setup code
@@ -319,22 +220,12 @@ int timedata[2];
 char* test1;
 char test2[50];
 const char* temp3;
-//struct pun *filelist = create_list();
 File root;
 LinkedList<char*> myFileList = LinkedList<char*>();
 
 void setup()
 {
   int j = 0;
-  //Pun *holder;
-  //struct node *curr = filelist->head;
-  /*const char* filename;
-  char format[] = "/";
-  const char* temp;
-  char* test1;
-  char test2[50];
-  int numfile = 0;
-  File root;*/
   // initialize LED digital pin as an output.
   //pinMode(led21, OUTPUT);
   //pinMode(led23, OUTPUT);
@@ -355,7 +246,94 @@ void setup()
   but_timer = timerBegin(2, 40000, true);
   timerStop(but_timer);
   timerWrite(but_timer, 0);
+  displaysetup(0);
+  extractfilename();
+}
+// Main Code
+int timetest[2];
+int set = 0;
+int i = 0;
+int re = 0;
+int pointer = 1;
+int filenum = 0;
 
+const char* filename;
+int j = 0;
+
+  
+void loop() {
+
+  set = checkbutton(set);
+  timetest[0] = rtc.getHour(true);
+  timetest[1] = rtc.getMinute();
+  if (disp_new_image & (mode_but.numberKeyPresses == 0) & (mode_but.cur_mode == 0)) {
+    char*n = myFileList.get(re);
+    GetImgAndDisp((const char *) n);
+    re++;
+    if (re >= myFileList.size()){
+      re = 0;
+    }
+    timerAlarmDisable(image_timer);
+    timerStop(image_timer);
+    if (n[1] == 'g'){
+      timerAlarmWrite(image_timer, 100000, true);
+      Serial.println("timer set for gif");
+    }
+    else if(n[1] == 'i'){
+      timerAlarmWrite(image_timer, 5000000, true);
+      Serial.println("timer set for image");
+    }
+    
+    
+    timerAlarmEnable(image_timer);
+    timerRestart(image_timer);
+    timerStart(image_timer);
+    disp_new_image = 0;
+  }
+
+  // Check power button
+  //if (sleep_last) {
+  //  sleep_last = digitalRead(powr_but);
+  //}
+  //else {
+  //  power_button();
+  //}
+}
+
+void displaysetup(int error){
+  
+  matrix.fillScreen(matrix.Color333(0, 0, 0));
+
+  // draw some text!
+  matrix.setCursor(1, 0);    // start at top left, with one pixel of spacing
+  matrix.setTextSize(1);     // size 1 == 8 pixels high
+  matrix.setTextWrap(false); // Don't wrap at end of line - will do ourselves
+  matrix.setTextColor(matrix.Color333(7,7,7));
+  if (error == 0){
+    matrix.println("Load");
+    matrix.println("ing");
+    matrix.println("SD");
+    matrix.println("Card");
+  }
+  else if (error == 1){
+    matrix.println("SD");
+    matrix.println("Card");
+    matrix.println("Not");
+    matrix.println("Found");
+  }
+  else if (error == 2){
+    matrix.println("Fatal");
+    matrix.println("Error");
+    matrix.println("Please");
+    matrix.println("Reset");
+  }
+}
+
+void extractfilename(){
+  char* test1;
+  char test2[50];
+  const char* temp3;
+  File root;
   setup_SD();
   Serial.println("Setup success");
   root = SD.open("/");
@@ -388,178 +366,10 @@ void setup()
       Serial.println(holder);
       strcpy(finalname, holder);
       myFileList.add(finalname);
-      //filelist[j - 1] = (const char*) format;
-      //add_file(filelist, format);
-      //Serial.println(curr->filename);
-      //filenum++;
-      /*for (int k = 0; k < myFileList.size(); k++){
-      //GetImgAndDisp(filelist[k]);
-      //delay(100);
-      char* n = myFileList.get(k);
-      Serial.println(n);*/
-      /*curr = curr->next;
-      if (!curr){
-        curr = filelist->head;
-      }*/
-      //delay(500);
       }
-      //Serial.println("End of the loop");
       entry.close();
     }
     spi_SD.end();
-}
-  /*for (int k = 0; k < 10; k++){
-    //GetImgAndDisp(filelist[k]);
-    //delay(100);
-    Serial.println(curr->filename);
-    curr = curr->next;
-    if (!curr){
-      curr = filelist->head;
-    }
-    delay(500);
-  }*/
-
-  //void *point = &disp_arr;
-// Main Code
-char temp1[] = "/g_rick";
-//char temp2[2], temp3;
-char filetype[] = ".bmp";
-int timetest[2];
-int set = 0;
-int i = 0;
-int re = 0;
-//const char* filelist[2];
-const char* filename1 = "/test_bmp.bmp";
-const char* filename2 = "/i_result.bmp";
-int pointer = 1;
-int filenum = 0;
-
-const char* filename;
-//char format[] = "/";
-//const char* temp3;
-//char* test1;
-//char test2[50];
-int j = 0;
-//File root;
-//struct pun *filelist = create_list();
-
-  
-void loop() {
-  //struct node *curr = filelist->head;
-  /*if (re == 0) {
-    setup_SD();
-    Serial.print("Setup success");
-    root = SD.open("/");
-    Serial.print("Root created");
-    while (true) {
-      File entry =  root.openNextFile();
-      Serial.print("Entry created");
-      if (! entry) {
-        // no more files
-        Serial.print("Enter if condition");
-        Serial.print("end of the files");
-        break;
-      }
-      else {
-        Serial.print("Enter else condition");
-        char format[50] = "/";
-        temp3 = entry.name();
-        test1 = (char*)temp3;
-        strcpy(test2, test1);
-        strcat(format, test2);
-        Serial.print("format = ");
-        Serial.println(format);
-        //filelist[j - 1] = (const char*) format;
-        add_file(filelist, format);
-        //filenum++;
-        entry.close();
-      }
-    }
-    /*spi_SD.end();
-    setup_SD();
-    root = SD.open("/");
-    filenum = filenum - 1;
-    Serial.print("Filenum = ");
-    Serial.println(filenum);
-    //const char* filelist[filenum];
-    while (true) {
-      File entry =  root.openNextFile();
-      if (! entry) {
-        // no more files
-        Serial.print("end of the files");
-        break;
-      }
-      else if (j != 0) {
-        char format[] = "/";
-        temp3 = entry.name();
-        test1 = (char*)temp3;
-        strcpy(test2, test1);
-        strcat(format, test2);
-        Serial.print("j = ");
-        Serial.println(j);
-        Serial.print("temp3 = ");
-        Serial.println(temp3);
-        Serial.print("test1 = ");
-        Serial.println(test1);
-        Serial.print("test2 = ");
-        Serial.println(test2);
-        Serial.print("format = ");
-        Serial.println(format);
-        //filelist[j - 1] = (const char*) format;
-        add_file(filelist, format);
-        j++;
-        entry.close();
-      }
-      else {
-        j++;
-      }
-    }
-    re++;
-    spi_SD.end();
-  }*/
-  //Pun *n;
-  /*for (int k = 0; k < myFileList.size(); k++){
-    //GetImgAndDisp(filelist[k]);
-    //delay(100);
-    char*n = myFileList.get(k);
-    Serial.println(n);
-    curr = curr->next;
-    if (!curr){
-      curr = filelist->head;
-    }
-    delay(500);
-  }
-  Serial.println("End of the loop");*/
-  set = checkbutton(set);
-  timetest[0] = rtc.getHour(true);
-  timetest[1] = rtc.getMinute();
-  if (disp_new_image & (mode_but.numberKeyPresses == 0) & (mode_but.cur_mode == 0)) {
-    char*n = myFileList.get(re);
-    //Serial.println(n);
-    GetImgAndDisp((const char *) n);
-    re++;
-    if (re >= myFileList.size()){
-      re = 0;
-    }
-    //i++;
-    //i = i%2;
-    if (n[1] == 'g'){
-      disp_new_image = 5000000 - 1000;
-    }
-    else if(n[1] == 'i'){
-      disp_new_image = 0;
-    }
-    Serial.print("disp_new_image = ");
-    Serial.print(disp_new_image);
-  }
-
-  // Check power button
-  //if (sleep_last) {
-  //  sleep_last = digitalRead(powr_but);
-  //}
-  //else {
-  //  power_button();
-  //}
 }
 
 int checkbutton(int set){
@@ -595,57 +405,22 @@ int checkbutton(int set){
     else if (set == 3){
       displaytime(timetest, 2);
     }
-    /*else{
-      return;
-    }
-    while (n != 1){
-      if ((mode_but.pressed) | (mode_but.hold)) {
-        checkbutton();
-        n = 1;
-      }
-    }*/
   }
   newset = set;
   return (newset);
 }
 
 void GetImgAndDisp(const char* filename){
-  /*const char* filename;
-  char format[] = "/";
-  const char* temp;
-  char* test1;
-  char test2[50];
-  int i = 0;
-  File root;
+  int error;
   setup_SD();
-  root = SD.open("/");
-
-  while (true) {
-    File entry =  root.openNextFile();
-    if (! entry) {
-      // no more files
-      pointer = 1;
-      break;
-    }
-    else if (i == pointer) {
-      temp = entry.name();
-      test1 = (char*)temp;
-      strcpy(test2, test1);
-      strcat(format, test2);
-      filename = format;
-      entry.close();
-      pointer++;
-      break;
-    }
-    else {
-      i++;
-    }
-  }*/
-  setup_SD();
-  bmpDraw(SD, filename, disp_arr);
-  displayimage(disp_arr, 32, 32);
+  error = bmpDraw(SD, filename, disp_arr);
+  if (error == 1){
+    displaysetup(2);
+  }
+  else {
+    displayimage(disp_arr, 32, 32);
+  }
   spi_SD.end();
-  Serial.println("print successful");
   return;
 }
 
@@ -658,16 +433,12 @@ int displayimage(int arr[32][32][3], int height, int width){
   for(int startindex = 0; startindex < frame; startindex++){
     for (int i = 0; i < 32; i++){
       for(int j = 0; j < 32; j++){
-        /*int r = *(intArr + (((i * width) + (startindex * 1024) + j) * 3) + 0);
-        int g = *(intArr + (((i * width) + (startindex * 1024) + j) * 3) + 1);
-        int b = *(intArr + (((i * width) + (startindex * 1024) + j) * 3) + 2);*/
         int r = arr[i][j][0];
         int g = arr[i][j][1];
         int b = arr[i][j][2];
         matrix.drawPixel(j, i, matrix.Color888(r, g, b)); //Set the RGB value for each pixel
       }
     }
-    //wait(pause);
   }
   return 0;
 }
