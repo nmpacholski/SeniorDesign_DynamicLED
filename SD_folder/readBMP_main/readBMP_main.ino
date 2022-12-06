@@ -2,6 +2,7 @@
 #include <string>
 #include <stdio.h>
 #include <LinkedList.h>
+#include <Wire.h>
 using namespace std;
 
 #include <fstream>
@@ -26,7 +27,7 @@ using std::fstream;
 #define MOSI_SD  23
 #define MISO_SD  19
 #define CS_SD    5
-#define powr_but 1
+//#define powr_but 1
 #define CLK  15 //Initialize the IO pin value
 #define OE   33
 #define LAT 32
@@ -34,9 +35,10 @@ using std::fstream;
 #define B   16
 #define C   17
 #define D   2
+TwoWire I2C_32 = TwoWire(0);
 
 //from but_funcs.cpp
-#define powr_but 35
+//#define powr_but 35
 
 struct Button {
   const uint8_t PIN;
@@ -47,12 +49,15 @@ struct Button {
   bool cur_mode;
 };
 Button mode_but = {34, 0, false, false, false, false};
+Button powr_but = {35, 0, false, false, false, false};
 
 int sleep_last = 1;
 hw_timer_t * but_timer = NULL;
 
 
 SPIClass spi_SD = SPIClass(VSPI);
+int* displayequalizer(int fft[16],void* current);
+int fftconvert(int fft);
 void displaysetup(int error);
 void extractfilename();
 int checkbutton(int set);
@@ -88,15 +93,40 @@ void ARDUINO_ISR_ATTR change_image() {
   disp_new_image = 1;
 }
 
+void wait(unsigned long duration){
+  //This function cause the microcontroller to wait for a certain amount of millisecond before continueing
+  unsigned long current_time = millis();
+  while(millis() < current_time + duration){  
+  }
+}
+
+int compare(char *&a, char *&b) {
+  return strcmp(a, b);
+}
+
+void IRAM_ATTR powr_isr() {
+  if (powr_but.hold) {
+    powr_but.hold = false;
+  }
+  else if (digitalRead(powr_but.PIN)) {
+    powr_but.check = true;
+  }
+  else {
+    if (powr_but.check) {
+      esp_deep_sleep_start();
+    }
+  }
+}
+
 void IRAM_ATTR mode_isr() {
-  if (!mode_but.check) {
+  if (digitalRead(mode_but.PIN) == HIGH) {
     mode_but.check = true;
     timerStart(but_timer);
   }
   else {
     mode_but.check = false;
     // hold
-    if (timerRead(but_timer) > 4000) {
+    if (timerRead(but_timer) > 2000) {
       mode_but.hold = true;
     }
     // press
@@ -180,14 +210,14 @@ void mode_pressed(int* set, int* hour, int* minute) {
   }
 }
 
-void power_button() {
+/*void power_button() {
 
   if (digitalRead(powr_but)) {
     while (digitalRead(powr_but));
     esp_deep_sleep_start();
   }
 
-}
+}*/
 
 void setup_SD(){
   //Set up SPI for SD
@@ -220,6 +250,8 @@ int timedata[2];
 char* test1;
 char test2[50];
 const char* temp3;
+int newtimetest[2];
+int initializetime = 0;
 File root;
 LinkedList<char*> myFileList = LinkedList<char*>();
 
@@ -238,11 +270,16 @@ void setup()
   timerAttachInterrupt(image_timer, &change_image, true); // init interrupt for timer
   timerAlarmWrite(image_timer, 5000000, true); // create alarm to call interrupt
   timerAlarmEnable(image_timer); // enable alarm
+  pinMode(0, INPUT);
   pinMode(mode_but.PIN, INPUT);
-  pinMode(powr_but, INPUT);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_12, HIGH);
-
+  pinMode(powr_but.PIN, INPUT);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, HIGH);
+  I2C_32.begin(13, 14, 100000);
   attachInterrupt(mode_but.PIN, mode_isr, CHANGE);
+  if (digitalRead(powr_but.PIN)) {
+    powr_but.hold = true;
+  }
+  attachInterrupt(powr_but.PIN, powr_isr, CHANGE);
   but_timer = timerBegin(2, 40000, true);
   timerStop(but_timer);
   timerWrite(but_timer, 0);
@@ -259,45 +296,238 @@ int filenum = 0;
 
 const char* filename;
 int j = 0;
-
+uint8_t temp_data[16];
+int initialfft[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void *current = &initialfft;
+uint8_t rec_data;
+int fft[16];
   
 void loop() {
-
-  set = checkbutton(set);
-  timetest[0] = rtc.getHour(true);
-  timetest[1] = rtc.getMinute();
-  if (disp_new_image & (mode_but.numberKeyPresses == 0) & (mode_but.cur_mode == 0)) {
-    char*n = myFileList.get(re);
-    GetImgAndDisp((const char *) n);
-    re++;
-    if (re >= myFileList.size()){
-      re = 0;
+  if (digitalRead(0) == LOW){
+    Serial.println("Phone connected");
+    rec_data = I2C_32.requestFrom(0x50, 16, true); //add address
+    //Serial.print(rec_data);
+    if ((bool)rec_data) {
+      //uint8_t temp_data[rec_data];
+      I2C_32.readBytes(temp_data, rec_data);
+      //log_print_buf(temp_data, rec_data);
     }
-    timerAlarmDisable(image_timer);
-    timerStop(image_timer);
-    if (n[1] == 'g'){
-      timerAlarmWrite(image_timer, 100000, true);
-      Serial.println("timer set for gif");
+    for (int u = 0; u < 16; u++){
+      //Serial.print("temp_data = ");
+      //Serial.println((int)temp_data[u]);
+      if ((int)temp_data[u] == 106){
+        break;
+      }
+      fft[u] = fftconvert((int)temp_data[u]);
+      Serial.print("fft = ");
+      Serial.println(fft[u]);
     }
-    else if(n[1] == 'i'){
-      timerAlarmWrite(image_timer, 5000000, true);
-      Serial.println("timer set for image");
-    }
-    
-    
-    timerAlarmEnable(image_timer);
-    timerRestart(image_timer);
-    timerStart(image_timer);
-    disp_new_image = 0;
+    Serial.println("end of one set");
+    current = displayequalizer(fft, current);
   }
+  else if(digitalRead(0) == HIGH){
+    Serial.println("Phone disconnected");
+    set = checkbutton(set);
+    if (initializetime == 0){
+      timetest[0] = rtc.getHour(true);
+      timetest[1] = rtc.getMinute();
+      initializetime++;
+    }
+    if (disp_new_image & (mode_but.numberKeyPresses == 0) & (mode_but.cur_mode == 0)) {
+      char*n = myFileList.get(re);
+      GetImgAndDisp((const char *) n);
+      re++;
+      if (re >= myFileList.size()){
+        re = 0;
+      }
+      timerAlarmDisable(image_timer);
+      timerStop(image_timer);
+      if (n[1] == 'g'){
+        timerAlarmWrite(image_timer, 1000, true);
+        Serial.println("timer set for gif");
+      }
+      else if(n[1] == 'i'){
+        timerAlarmWrite(image_timer, 5000000, true);
+        Serial.println("timer set for image");
+      }
+      timerAlarmEnable(image_timer);
+      timerRestart(image_timer);
+      timerStart(image_timer);
+      disp_new_image = 0;
+    }
+    else if ((set == 10) & ((timetest[0] != rtc.getHour(true)) | (timetest[1] != rtc.getMinute()))){
+      Serial.println("In the time update");
+      timetest[0] = rtc.getHour(true);
+      timetest[1] = rtc.getMinute();
+      displaytime(timetest, 0);
+    }
+  }
+}
 
-  // Check power button
-  //if (sleep_last) {
-  //  sleep_last = digitalRead(powr_but);
-  //}
-  //else {
-  //  power_button();
-  //}
+int* displayequalizer(int fft[16], void *current){
+  int *intCurr = (int *) current;
+  int pointer[2] = {0, 31};
+  static int location[16];
+  int x, y, current_height, new_height;
+  int width = 2;
+  int numbin = 16;
+  int r, g, b;
+  int color[16][3] = {{255, 0, 0},
+    {255, 96, 0},
+    {255, 192, 0},
+    {222, 255, 0},
+    {126, 255, 0},
+    {30, 255, 0},
+    {0, 255, 66},
+    {0, 255, 162},
+    {0, 252, 255},
+    {0, 162, 255},
+    {0, 66, 255},
+    {30, 0, 255},
+    {126, 0, 255},
+    {222, 0, 255},
+    {255, 0, 192},
+    {255, 0, 96}};
+
+  matrix.fillScreen(matrix.Color888(0, 0, 0));
+  for (int i = 0; i < numbin; i++){
+    new_height = fft[i];
+    current_height = *(intCurr + i);
+    if (new_height != 0) {
+      x = pointer[0];
+      y = pointer[1] - new_height + 1;
+      r = color[i][0];
+      g = color[i][1];
+      b = color[i][2];
+      matrix.drawRect(x, y, width, new_height, matrix.Color888(r, g, b));
+      //pointer[0] = pointer[0] + 2;
+    }
+    /*else {
+      pointer[0] = pointer[0] + 2;
+    }*/
+    /*if (new_height >= current_height) {
+      y = pointer[1] - new_height - 1;
+      matrix.drawRect(x, y, width, 2, matrix.Color888(255, 255, 255));
+      
+    }
+    else {
+      y = pointer[1] - current_height + 1;
+      //y = 31 - y;
+      matrix.drawRect(x, y, width, 2, matrix.Color888(255, 255, 255));
+    }*/
+    location[i] = 31 - y;
+    pointer[0] = pointer[0] + 2;
+  /*Serial.print("current_height =  ");
+  Serial.println(current_height);
+  }
+  for (int i = 0; i < 16; i++) {
+    Serial.print("height =  ");
+    Serial.println(location[i]);*/
+  }
+  return location;
+}
+
+int fftconvert(int inputdata){
+  double maxout = 40;
+  double range = 30 / maxout;
+  double fft = inputdata;
+  Serial.print("range = ");
+  Serial.println(range);
+  Serial.print("raw fft = ");
+  Serial.println(fft);
+  if (fft < range){
+    return(0);
+  }
+  else if ((fft >= range) & (fft < range * 2)){
+    return(1);
+  }
+  else if ((fft >= range * 2) & (fft < range * 3)){
+    return(2);
+  }
+  else if ((fft >= range * 3) & (fft < range * 4)){
+    return(3);
+  }
+  else if ((fft >= range * 4) & (fft < range * 5)){
+    return(4);
+  }
+  else if ((fft >= range * 5) & (fft < range * 6)){
+    return(5);
+  }
+  else if ((fft >= range * 6) & (fft < range * 7)){
+    return(6);
+  }
+  else if ((fft >= range * 7) & (fft < range * 8)){
+    return(7);
+  }
+  else if ((fft >= range * 8) & (fft < range * 9)){
+    return(8);
+  }
+  else if ((fft >= range * 9) & (fft < range * 10)){
+    return(9);
+  }
+  else if ((fft >= range * 10) & (fft < range * 11)){
+    return(10);
+  }
+  else if ((fft >= range * 11) & (fft < range * 12)){
+    return(11);
+  }
+  else if ((fft >= range * 12) & (fft < range * 13)){
+    return(12);
+  }
+  else if ((fft >= range * 13) & (fft < range * 14)){
+    return(13);
+  }
+  else if ((fft >= range * 14) & (fft < range * 15)){
+    return(14);
+  }
+  else if ((fft >= range * 15) & (fft < range * 16)){
+    return(15);
+  }
+  else if ((fft >= range * 16) & (fft < range * 17)){
+    return(16);
+  }
+  else if ((fft >= range * 17) & (fft < range * 18)){
+    return(17);
+  }
+  else if ((fft >= range * 18) & (fft < range * 19)){
+    return(18);
+  }
+  else if ((fft >= range * 19) & (fft < range * 20)){
+    return(19);
+  }
+  else if ((fft >= range * 20) & (fft < range * 21)){
+    return(20);
+  }
+  else if ((fft >= range * 21) & (fft < range * 22)){
+    return(21);
+  }
+  else if ((fft >= range * 22) & (fft < range * 23)){
+    return(22);
+  }
+  else if ((fft >= range * 23) & (fft < range * 24)){
+    return(23);
+  }
+  else if ((fft >= range * 24) & (fft < range * 25)){
+    return(24);
+  }
+  else if ((fft >= range * 25) & (fft < range * 26)){
+    return(25);
+  }
+  else if ((fft >= range * 26) & (fft < range * 27)){
+    return(26);
+  }
+  else if ((fft >= range * 27) & (fft < range * 28)){
+    return(27);
+  }
+  else if ((fft >= range * 28) & (fft < range * 29)){
+    return(28);
+  }
+  else if ((fft >= range * 29) & (fft < range * 30)){
+    return(29);
+  }
+  else if (fft >= range * 30){
+    return(0);
+  }
 }
 
 void displaysetup(int error){
@@ -370,6 +600,7 @@ void extractfilename(){
       entry.close();
     }
     spi_SD.end();
+    myFileList.sort(compare);
 }
 
 int checkbutton(int set){
@@ -378,12 +609,13 @@ int checkbutton(int set){
   int newset;
   int n = 0;
   
-  if (sleep_last) {
+  /*if (sleep_last) {
     sleep_last = digitalRead(powr_but);
   }
   else {
-    power_button();
-  }
+    //Serial.println("System turn off");
+    //power_button();
+  }*/
 
   if ((mode_but.pressed) | (mode_but.hold)) {
     mode_pressed(&set, &timetest[0], &timetest[1]);
