@@ -11,7 +11,7 @@ import numpy as np
 import math
 import sys
 
-
+#reference = ['a','b','c','d','e','f','g','h','i','j']
 
 def scale32(imagearray, width, heigth):
     '''
@@ -99,6 +99,33 @@ def cropimg(imagearray, width, height):
     #x.save("cropresult.bmp")
     print('Crop Success')
     return(cropimage) #Return the cropped image to main
+
+'''def number_2_word(n):
+ 
+    # If all the digits are encountered return blank string
+    if(n==0):
+        return "a"
+     
+    else:
+        # compute spelling for the last digit
+        small_ans = reference[n%10]
+ 
+        # keep computing for the previous digits and add the spelling for the last digit
+        ans = number_2_word(int(n/10)) + small_ans
+     
+    # Return the final answer
+    return ans'''
+
+def printnumber(number):
+    if (number < 10):
+        convertnumber = "0"+"0"+"0"+str(number)
+    elif ((number < 100) and (number >= 10)):
+        convertnumber = "0"+"0"+str(number)
+    elif ((number < 1000) and (number >= 100)):
+        convertnumber = "0"+str(number)
+    elif ((number < 10000) and (number >= 1000)):
+        convertnumber =str(number)
+    return(convertnumber)
         
 
 np.set_printoptions(threshold=sys.maxsize)
@@ -121,10 +148,10 @@ if (filename[-4:] == '.gif'):
     numframe = inputfile.n_frames
     gifcheck = 1
     print(numframe)
-    if numframe > framelimit:
+    '''if numframe > framelimit:
         print('The ESP32 can only show 8 frames of animation due to memory issue')
         startingframe = input('Please choose the starting frame: ')
-        endingframe = input('Please choose the ending frame: ')
+        endingframe = input('Please choose the ending frame: ')'''
 for i in range(0,numframe,1):
     if gifcheck == 1:
         if i >= numframe - 1:
@@ -147,6 +174,19 @@ for i in range(0,numframe,1):
         [height,width,d] = img.shape
     newimg = scale32(img, width, height) #Scale the image to 32x32 resolution and save it to the new file
     if i == 0:
+        resultname = input('Enter the result image name: ')
+    if gifcheck == 1:
+        '''answer = number_2_word(i)
+        print(type(answer))
+        print(answer)'''
+        convertnumber = printnumber(i)
+        print(str(convertnumber))
+        savename = "g_"+resultname+"_"+str(convertnumber)+".bmp"
+    else:
+        savename = "i_"+resultname+".bmp"
+    im = Image.fromarray(newimg) #Save array into a new image file
+    im.save(savename)
+    '''if i == 0:
         final = newimg
     else:
         final = np.concatenate((final, newimg), axis = 0)
@@ -158,6 +198,6 @@ print(final, file = f)
 f.close()
 final = np.array(final, dtype=np.uint8)
 im = Image.fromarray(final) #Save array into a new image file
-im.save("result.bmp")
+im.save("result.bmp")'''
 
 
